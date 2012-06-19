@@ -19,17 +19,17 @@ package org.gradle.initialization;
 import org.gradle.*;
 import org.gradle.api.internal.ExceptionAnalyser;
 import org.gradle.api.internal.GradleInternal;
-import org.gradle.internal.reflect.Instantiator;
 import org.gradle.api.internal.project.GlobalServicesRegistry;
-import org.gradle.internal.service.ServiceRegistry;
 import org.gradle.api.internal.project.TopLevelBuildServiceRegistry;
 import org.gradle.api.logging.Logging;
 import org.gradle.api.logging.StandardOutputListener;
-import org.gradle.cache.CacheRepository;
+import org.gradle.cache.internal.FileLockManager;
 import org.gradle.cli.CommandLineConverter;
 import org.gradle.configuration.BuildConfigurer;
 import org.gradle.execution.BuildExecuter;
 import org.gradle.initialization.layout.BuildLayoutFactory;
+import org.gradle.internal.reflect.Instantiator;
+import org.gradle.internal.service.ServiceRegistry;
 import org.gradle.invocation.DefaultGradle;
 import org.gradle.listener.ListenerManager;
 import org.gradle.logging.LoggingManagerInternal;
@@ -51,7 +51,7 @@ public class DefaultGradleLauncherFactory implements GradleLauncherFactory {
     public DefaultGradleLauncherFactory(ServiceRegistry loggingServices) {
         this(new GlobalServicesRegistry(loggingServices));
     }
-    
+
     public DefaultGradleLauncherFactory() {
         this(new GlobalServicesRegistry());
     }
@@ -135,7 +135,7 @@ public class DefaultGradleLauncherFactory implements GradleLauncherFactory {
                         new BuildSourceBuilder(
                                 this,
                                 serviceRegistry.get(ClassLoaderRegistry.class),
-                                serviceRegistry.get(CacheRepository.class))),
+                                serviceRegistry.get(FileLockManager.class))),
                 serviceRegistry.get(BuildLoader.class),
                 serviceRegistry.get(BuildConfigurer.class),
                 gradle.getBuildListenerBroadcaster(),

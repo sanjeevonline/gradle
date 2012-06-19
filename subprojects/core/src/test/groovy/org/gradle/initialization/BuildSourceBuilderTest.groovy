@@ -23,10 +23,9 @@ import org.gradle.api.file.FileCollection
 import org.gradle.api.internal.plugins.EmbeddableJavaProject
 import org.gradle.api.invocation.Gradle
 import org.gradle.api.plugins.Convention
-import org.gradle.cache.CacheBuilder
-import org.gradle.cache.CacheRepository
-import org.gradle.cache.ObjectCacheBuilder
 import org.gradle.cache.PersistentStateCache
+import org.gradle.cache.internal.FileLock
+import org.gradle.cache.internal.FileLockManager
 import org.gradle.util.JUnit4GroovyMockery
 import org.gradle.util.TemporaryFolder
 import org.gradle.util.TestFile
@@ -35,6 +34,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+
 import static org.hamcrest.Matchers.*
 import static org.junit.Assert.assertEquals
 
@@ -54,14 +54,16 @@ class BuildSourceBuilderTest {
     File testBuildSrcDir = rootDir.file('buildSrc').createDir()
     List testDependencies
     StartParameter expectedStartParameter
-    CacheRepository cacheRepository = context.mock(CacheRepository.class)
     PersistentStateCache stateCache = context.mock(PersistentStateCache.class)
+    FileLockManager fileLockManager = context.mock(FileLockManager.class);
     BuildResult expectedBuildResult
     Gradle build = context.mock(Gradle.class)
-    EmbeddableJavaProject projectMetaInfo = context.mock(EmbeddableJavaProject.class)
+    EmbeddableJavaProject projectMetaInfo = context.mock(EmbeddableJavaProject.class);
+    File buildSrcCacheFile = new File(testBuildSrcDir, ".gradle/noVersion/buildSrc");
+    FileLock fileLock = context.mock(FileLock);
 
     @Before public void setUp() {
-        buildSourceBuilder = new BuildSourceBuilder(gradleFactoryMock, context.mock(ClassLoaderRegistry.class), cacheRepository)
+        buildSourceBuilder = new BuildSourceBuilder(gradleFactoryMock, context.mock(ClassLoaderRegistry.class), fileLockManager)
         expectedStartParameter = new StartParameter(currentDir: testBuildSrcDir)
         testDependencies = ['dep1' as File, 'dep2' as File]
         Convention convention = context.mock(Convention)
@@ -87,7 +89,7 @@ class BuildSourceBuilderTest {
             one(gradleMock).run(); will(returnValue(expectedBuildResult))
         }
         expectValueWrittenToCache()
-        
+
         createBuildFile()
         def actualClasspath = buildSourceBuilder.createBuildSourceClasspath(expectedStartParameter).asFiles
         assertEquals(testDependencies, actualClasspath)
@@ -115,22 +117,28 @@ class BuildSourceBuilderTest {
     }
 
     private expectValueFetchedFromCache(def value) {
+
         context.checking {
-            ObjectCacheBuilder<Boolean, PersistentStateCache<Boolean>> builder = context.mock(ObjectCacheBuilder.class)
-            one(cacheRepository).stateCache(Boolean.class, 'buildSrc')
-            will(returnValue(builder))
+            one(fileLockManager).lock(buildSrcCacheFile, FileLockManager.LockMode.Exclusive, "buildSrc rebuild status cache")
+            will(returnValue(fileLock));
+            ignoring(fileLock)
+//            one(fileLock).updateFile(with(any(Runnable.class)))
 
-            one(builder).forObject(testBuildSrcDir)
-            will(returnValue(builder))
+//            Runnable mock = context.mock(Runnable.class)
 
-            one(builder).withVersionStrategy(CacheBuilder.VersionStrategy.SharedCacheInvalidateOnVersionChange)
-            will(returnValue(builder))
-
-            one(builder).open()
-            will(returnValue(stateCache))
-
-            one(stateCache).get()
-            will(returnValue(value))
+//            will(returnValue(builder))
+//
+//            one(builder).forObject(testBuildSrcDir)
+//            will(returnValue(builder))
+//
+//            one(builder).withVersionStrategy(CacheBuilder.VersionStrategy.SharedCacheInvalidateOnVersionChange)
+//            will(returnValue(builder))
+//
+//            one(builder).open()
+//            will(returnValue(stateCache))
+//
+//            one(stateCache).get()
+//            will(returnValue(value))
         }
     }
 
